@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RESCUE-MESH | Smart Emergency Communication System</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            radar: {
+              50: '#ecfdf5',
+              400: '#34d399',
+              500: '#10b981',
+              900: '#064e3b',
+            },
+            crimson: {
+              500: '#ef4444',
+              600: '#dc2626',
+              700: '#b91c1c',
+            },
+            amberalert: {
+              500: '#f59e0b',
+              600: '#d97706',
+            },
+            cyberdark: {
+              800: '#111827',
+              850: '#0c1322',
+              900: '#060a12',
+              950: '#03060a',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+            tech: ['"Chakra Petch"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #0c1322; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
+    /* CRT Radar / Emergency Scan Grid Effect */
+    .radar-grid {
+      background-size: 30px 30px;
+      background-image: 
+        linear-gradient(to right, rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+    }
+    .flood-pattern {
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(59, 130, 246, 0.12),
+        rgba(59, 130, 246, 0.12) 10px,
+        rgba(30, 58, 138, 0.22) 10px,
+        rgba(30, 58, 138, 0.22) 20px
+      );
+    }
+    .strobe-flash {
+      animation: strobeEffect 0.8s infinite alternate;
+    }
+    @keyframes strobeEffect {
+      0% { opacity: 0.3; filter: drop-shadow(0 0 2px #ef4444); }
+      100% { opacity: 1; filter: drop-shadow(0 0 16px #ef4444); }
+    }
+    .packet-ping {
+      animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-cyberdark-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-radar-500 selection:text-black">
+
+  <!-- TOP STATUS BAR: DISASTER TELEMETRY & VIEW SWITCHER -->
+  <header class="bg-cyberdark-900 border-b border-slate-800/80 sticky top-0 z-50 px-4 py-2.5 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Logo & System Tag -->
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 font-tech font-bold text-lg">
+          <i class="fa-solid fa-tower-broadcast"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-tech font-bold tracking-wider text-base sm:text-lg text-white">RESCUE<span class="text-emerald-400">-MESH</span></span>
+            <span class="bg-red-500/20 text-red-400 border border-red-500/40 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold animate-pulse flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> GRID BLACKOUT ACTIVE
+            </span>
+          </div>
+          <p class="text-[10px] font-mono text-slate-400">ENTC Case 1 • LoRa 433/868MHz Mesh + Offline Captive Portal</p>
+        </div>
+      </div>
+
+      <!-- Center Telemetry Pills -->
+      <div class="hidden lg:flex items-center space-x-3 text-xs font-mono">
+        <div class="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center gap-2">
+          <span class="text-slate-400">Commercial Cell Towers:</span>
+          <span class="text-red-400 font-bold flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> 0% (OFFLINE)</span>
+        </div>
+        <div class="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center gap-2">
+          <span class="text-slate-400">Mesh Nodes Online:</span>
+          <span class="text-emerald-400 font-bold" id="headerActiveNodes">6 / 6 Operative</span>
+        </div>
+        <div class="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center gap-2">
+          <span class="text-slate-400">Campus Flood Level:</span>
+          <span class="text-amber-400 font-bold" id="floodLevelGauge">+1.45m (Rising)</span>
+        </div>
+      </div>
+
+      <!-- View Switcher & Contingency Trigger -->
+      <div class="flex items-center gap-2.5 ml-auto">
+        <!-- Toggle View Mode Buttons -->
+        <div class="bg-cyberdark-850 p-1 rounded-xl border border-slate-800 flex items-center text-xs font-semibold">
+          <button onclick="setView('portal')" id="btn-portal" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-300 hover:text-white">
+            <i class="fa-solid fa-mobile-screen"></i>
+            <span>Student Phone Portal</span>
+          </button>
+          <button onclick="setView('eoc')" id="btn-eoc" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-cyberdark-950 font-bold shadow-md transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-satellite-dish"></i>
+            <span>Campus EOC Command</span>
+          </button>
+        </div>
+
+        <!-- Green Hat Contingency Mode Trigger -->
+        <button onclick="toggleContingency()" id="btnContingency" class="border border-amber-500/50 hover:bg-amber-500/20 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5" title="Switch to Green Hat Alternative Solution (VHF Walkie-Talkies + Acoustic/Strobe Beacons)">
+          <i class="fa-solid fa-walkie-talkie"></i>
+          <span class="hidden sm:inline" id="contingencyLabel">Trigger Contingency</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- CONTINGENCY ALERT BANNER -->
+  <div id="contingencyBanner" class="hidden bg-gradient-to-r from-red-950 via-amber-950 to-red-950 border-b border-amber-500/40 px-4 py-2 text-xs font-mono text-amber-300">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-bullhorn text-red-400 animate-bounce"></i>
+        <span class="font-bold text-white uppercase tracking-wider">Alternative Plan Engaged (Green Hat Contingency):</span>
+        <span class="hidden md:inline text-amber-200">VHF Staircase Walkie-Talkie Channel 07 active. Rooftop High-Lumen Strobe Beacons pulsing Morse 'SOS' for NDRF rescue boats.</span>
+      </div>
+      <button onclick="toggleContingency()" class="text-[11px] underline hover:text-white shrink-0 ml-4 font-bold">Return to LoRa Mesh Mode</button>
+    </div>
+  </div>
+
+  <!-- MAIN DUAL-VIEW WORKSPACE -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+
+    <!-- =========================================================================
+         VIEW 1: CAMPUS EMERGENCY OPERATIONS CENTER (EOC) DASHBOARD (DEFAULT)
+         ========================================================================= -->
+    <section id="view-eoc" class="space-y-6">
+      
+      <!-- Top Metric Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- Metric 1: Pending SOS -->
+        <div class="bg-cyberdark-900 border border-slate-800/80 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Unresolved Distress</span>
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 strobe-flash"></span>
+          </div>
+          <div class="text-2xl sm:text-3xl font-tech font-bold text-white mt-1.5" id="statPendingSOS">4 Alerts</div>
+          <div class="text-[11px] text-red-400 font-mono mt-1 flex items-center gap-1">
+            <i class="fa-solid fa-heart-pulse"></i> 2 Critical Triage Cases
+          </div>
+        </div>
+
+        <!-- Metric 2: Mesh Health & Hops -->
+        <div class="bg-cyberdark-900 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Mesh Node Uptime</span>
+            <i class="fa-solid fa-circle-nodes text-emerald-400 text-xs"></i>
+          </div>
+          <div class="text-2xl sm:text-3xl font-tech font-bold text-emerald-400 mt-1.5">100%</div>
+          <div class="text-[11px] text-slate-400 font-mono mt-1">Solar Buffered Li-Ion (6/6 Active)</div>
+        </div>
+
+        <!-- Metric 3: Packet Success Rate -->
+        <div class="bg-cyberdark-900 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">RF Packet Delivery</span>
+            <i class="fa-solid fa-chart-line text-blue-400 text-xs"></i>
+          </div>
+          <div class="text-2xl sm:text-3xl font-tech font-bold text-blue-400 mt-1.5">99.4%</div>
+          <div class="text-[11px] text-slate-400 font-mono mt-1">LoRa Spread Factor: SF10 / BW 125kHz</div>
+        </div>
+
+        <!-- Metric 4: Safe Check-ins -->
+        <div class="bg-cyberdark-900 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Campus Accounted For</span>
+            <i class="fa-solid fa-user-check text-emerald-400 text-xs"></i>
+          </div>
+          <div class="text-2xl sm:text-3xl font-tech font-bold text-white mt-1.5" id="statSafeCount">342 Safe</div>
+          <div class="text-[11px] text-emerald-400 font-mono mt-1">Verified via Captive Portal</div>
+        </div>
+      </div>
+
+      <!-- Main Central Grid: Interactive Campus Flood Map & Live Mesh Topology -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Interactive Campus Flood & Mesh GIS Map (7 Cols) -->
+        <div class="lg:col-span-7 bg-cyberdark-900 border border-slate-800 rounded-3xl p-5 flex flex-col justify-between shadow-xl relative overflow-hidden radar-grid">
+          
+          <!-- Map Header -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3 z-10">
+            <div>
+              <h3 class="font-tech font-bold text-base sm:text-lg text-white flex items-center gap-2">
+                <i class="fa-solid fa-map-location-dot text-emerald-400"></i>
+                CAMPUS GIS TOPOLOGY & FLOOD INUNDATION MAP
+              </h3>
+              <p class="text-xs font-mono text-slate-400">Click any rooftop node to inspect RF links, battery telemetry & dispatch status</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> Water Level: High
+              </span>
+            </div>
+          </div>
+
+          <!-- Map SVG Interactive Graphic -->
+          <div class="relative w-full h-[360px] my-3 rounded-2xl bg-cyberdark-950 border border-slate-800/80 overflow-hidden flex items-center justify-center">
+            
+            <!-- Flood Overlay Zone (Low-lying Ground Areas) -->
+            <div class="absolute inset-x-0 bottom-0 h-44 flood-pattern border-t border-blue-500/40 pointer-events-none">
+              <div class="absolute top-2 left-3 bg-blue-900/80 text-blue-200 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-blue-400/40">
+                <i class="fa-solid fa-water"></i> SUBMERGED SECTOR: Ground Floor Elevation 0.0m - 1.5m
+              </div>
+            </div>
+
+            <!-- SVG Vector Lines: LoRa Mesh Link Propagation -->
+            <svg class="absolute inset-0 w-full h-full pointer-events-none" id="meshLinesSvg">
+              <!-- Mesh interlinks will be rendered via JS -->
+            </svg>
+
+            <!-- Interactive Campus Rooftop Nodes (Rendered as absolute elements) -->
+            <div id="mapNodesContainer" class="absolute inset-0">
+              <!-- Generated dynamically via JS -->
+            </div>
+
+            <!-- Compass / Legend -->
+            <div class="absolute bottom-2 right-2 bg-cyberdark-900/90 border border-slate-800 px-3 py-1.5 rounded-xl text-[10px] font-mono space-y-1">
+              <div class="flex items-center gap-2 text-emerald-400">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Rooftop Node (Safe)
+              </div>
+              <div class="flex items-center gap-2 text-red-400">
+                <span class="w-2 h-2 rounded-full bg-red-400 strobe-flash"></span> Urgent SOS Location
+              </div>
+              <div class="flex items-center gap-2 text-blue-400">
+                <span class="w-3 h-0.5 bg-blue-400 inline-block"></span> LoRa Wireless Hop
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Node Telemetry Inspector Box (Updated on node click) -->
+          <div id="nodeDetailBox" class="bg-cyberdark-850 border border-slate-800 rounded-2xl p-3.5 z-10 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                <i class="fa-solid fa-microchip"></i>
+              </div>
+              <div>
+                <span class="font-bold text-white" id="inspectNodeName">Node 01: ENTC Department Rooftop (Gateway)</span>
+                <span class="text-slate-400 block text-[11px]" id="inspectNodeRole">ESP32 + SX1276 LoRa (868 MHz) • Master Base Station</span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-4 text-[11px]">
+              <div>
+                <span class="text-slate-400 block">Battery:</span>
+                <span class="text-emerald-400 font-bold" id="inspectNodeBattery">96% (Solar Float)</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">RF SNR / RSSI:</span>
+                <span class="text-blue-400 font-bold" id="inspectNodeRssi">+8.2 dB / -89 dBm</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">Active Wi-Fi Clients:</span>
+                <span class="text-amber-400 font-bold" id="inspectNodeClients">38 Phones Connected</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Live Distress Triage & Rescue Dispatch Queue (5 Cols) -->
+        <div class="lg:col-span-5 bg-cyberdark-900 border border-slate-800 rounded-3xl p-5 flex flex-col justify-between shadow-xl space-y-4">
+          
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="font-tech font-bold text-base sm:text-lg text-white flex items-center gap-2">
+                <i class="fa-solid fa-tower-observation text-red-500"></i>
+                LIVE TRIAGE & RESCUE DISPATCH
+              </h3>
+              <p class="text-xs font-mono text-slate-400">Incoming packets from offline captive portals</p>
+            </div>
+            <!-- Triage filter tags -->
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+              Auto-Priority
+            </span>
+          </div>
+
+          <!-- SOS Cards Scrollable Feed -->
+          <div class="space-y-3 overflow-y-auto max-h-[380px] pr-1" id="sosFeedContainer">
+            <!-- Dynamic SOS cards will be inserted here -->
+          </div>
+
+          <!-- Bottom Action: Broadcast Emergency Advisory to all Captive Portals -->
+          <div class="bg-cyberdark-850 p-3 rounded-2xl border border-slate-800 space-y-2">
+            <span class="text-[11px] font-mono font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-bullhorn text-emerald-400"></i> Reverse Broadcast to All Captive Portals (LoRa Beacon):
+            </span>
+            <div class="flex gap-2">
+              <input type="text" id="eocAdvisoryInput" placeholder="e.g., Rescue boat arriving at East Gate in 15 mins..." class="flex-1 bg-cyberdark-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono">
+              <button onclick="broadcastAdvisory()" class="bg-emerald-500 hover:bg-emerald-600 text-cyberdark-950 font-bold px-3 py-1.5 rounded-xl text-xs font-tech transition active:scale-95">
+                Transmit
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Real-Time Packet Sniffer Console & ENTC Hardware Telemetry -->
+      <div class="bg-cyberdark-900 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between border-b border-slate-800 pb-2.5 gap-2">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-terminal text-emerald-400 text-sm"></i>
+            <span class="font-tech font-bold text-sm text-white">LORA MESH PACKET TELEMETRY & RF DIAGNOSTICS CONSOLE</span>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono text-slate-400">
+            <span>Freq: <strong class="text-white">868.100 MHz</strong></span>
+            <span>Modulation: <strong class="text-white">LoRa Chirp Spread Spectrum</strong></span>
+            <span>CRC: <strong class="text-emerald-400">VALID</strong></span>
+            <button onclick="clearConsole()" class="hover:text-white underline text-[11px]">Clear Log</button>
+          </div>
+        </div>
+
+        <div class="bg-cyberdark-950 rounded-2xl p-3 font-mono text-[11px] h-32 overflow-y-auto space-y-1 text-slate-300 border border-slate-800/80" id="telemetryConsole">
+          <!-- Filled by simulated RF heartbeat -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =========================================================================
+         VIEW 2: STUDENT / STAFF OFFLINE CAPTIVE PORTAL SIMULATOR
+         ========================================================================= -->
+    <section id="view-portal" class="hidden flex flex-col items-center justify-center py-4">
+      
+      <!-- Simulated Smartphone Chassis -->
+      <div class="max-w-md w-full bg-slate-900 rounded-[40px] p-4 border-4 border-slate-700 shadow-2xl relative overflow-hidden">
+        
+        <!-- Phone Camera Notch / Speaker -->
+        <div class="absolute top-4 inset-x-0 flex justify-center z-20 pointer-events-none">
+          <div class="w-32 h-4 bg-slate-950 rounded-full flex items-center justify-center">
+            <div class="w-2.5 h-2.5 rounded-full bg-slate-800 mr-2"></div>
+            <div class="w-8 h-1 rounded-full bg-slate-800"></div>
+          </div>
+        </div>
+
+        <!-- Phone Screen Container -->
+        <div class="bg-cyberdark-950 rounded-[30px] border border-slate-800 pt-7 pb-5 px-4 text-slate-100 flex flex-col min-h-[620px] relative overflow-hidden">
+          
+          <!-- Phone Status Bar -->
+          <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 pb-2 border-b border-slate-800/80 mb-3">
+            <span id="phoneClock">14:32</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-red-400 font-bold flex items-center gap-1">
+                <i class="fa-solid fa-slash text-[9px]"></i> <i class="fa-solid fa-signal text-[9px]"></i> No Cell Service
+              </span>
+              <span class="text-emerald-400 font-bold flex items-center gap-1">
+                <i class="fa-solid fa-wifi text-xs"></i>
+              </span>
+              <i class="fa-solid fa-battery-three-quarters text-slate-300"></i>
+            </div>
+          </div>
+
+          <!-- Captive Network Connection Bar -->
+          <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2.5 mb-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></div>
+              <div>
+                <span class="text-[11px] font-bold text-white block leading-tight">Connected: CAMPUS_EMERGENCY_SOS</span>
+                <span class="text-[9px] font-mono text-emerald-400">Offline Campus Rescue Gateway Node 03</span>
+              </div>
+            </div>
+            <span class="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">NO SIM REQUIRED</span>
+          </div>
+
+          <!-- EOC Broadcast Banner (Synchronized with admin desk) -->
+          <div id="portalBroadcastBanner" class="bg-amber-950/60 border border-amber-500/40 rounded-xl p-2 text-xs font-mono text-amber-300 mb-3 flex items-start gap-2">
+            <i class="fa-solid fa-bullhorn text-amber-400 mt-0.5 shrink-0"></i>
+            <div>
+              <span class="font-bold block text-[10px] uppercase tracking-wider text-amber-200">EOC Broadcast:</span>
+              <span id="portalBroadcastText" class="text-[11px]">Rescue boats active near Block C. Keep to upper floors. Do not step into basement water.</span>
+            </div>
+          </div>
+
+          <!-- Captive Form Section -->
+          <div class="flex-1 overflow-y-auto space-y-3 pr-1 text-xs" id="captiveFormBody">
+            <div>
+              <h2 class="font-tech font-bold text-lg text-white">Emergency Distress Dispatch</h2>
+              <p class="text-[11px] text-slate-400">This form relays via low-power LoRa mesh directly to the campus emergency desk without mobile data.</p>
+            </div>
+
+            <!-- Full Name & Roll Number -->
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-mono text-slate-400 uppercase">Your Name</label>
+                <input type="text" id="sosName" placeholder="e.g., Ananya S." class="w-full bg-cyberdark-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block text-[10px] font-mono text-slate-400 uppercase">Roll No. / ID</label>
+                <input type="text" id="sosRoll" placeholder="e.g., 26-ENTC-042" class="w-full bg-cyberdark-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+              </div>
+            </div>
+
+            <!-- Campus Building & Floor Selection -->
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-mono text-slate-400 uppercase">Building / Block</label>
+                <select id="sosBuilding" class="w-full bg-cyberdark-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                  <option value="ENTC Block">ENTC Department</option>
+                  <option value="Main Academic Library">Main Academic Library</option>
+                  <option value="Hostel Block A">Hostel Block A (Boys)</option>
+                  <option value="Hostel Block B">Hostel Block B (Girls)</option>
+                  <option value="Auditorium Complex">Auditorium Complex</option>
+                  <option value="Campus Canteen">Campus Canteen</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-mono text-slate-400 uppercase">Floor / Room</label>
+                <select id="sosFloor" class="w-full bg-cyberdark-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                  <option value="Rooftop (Refuge)">Rooftop (Safe Refuge)</option>
+                  <option value="3rd Floor">3rd Floor</option>
+                  <option value="2nd Floor">2nd Floor</option>
+                  <option value="1st Floor">1st Floor (Water rising)</option>
+                  <option value="Ground Floor (Submerged!)">Ground Floor (Flooded!)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Triage Severity Selector -->
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Emergency Triage Category</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" onclick="selectTriage(this, 'CRITICAL_MEDICAL')" class="triage-opt p-2 rounded-xl border border-red-500/50 bg-red-950/30 text-left hover:border-red-400 transition">
+                  <span class="block font-bold text-red-400 text-[11px]"><i class="fa-solid fa-heart-pulse"></i> Critical Medical</span>
+                  <span class="text-[9px] text-slate-400 block">Severe injury / unconscious</span>
+                </button>
+                <button type="button" onclick="selectTriage(this, 'TRAPPED_FLOOD')" class="triage-opt p-2 rounded-xl border border-amber-500/50 bg-amber-950/30 text-left hover:border-amber-400 transition">
+                  <span class="block font-bold text-amber-400 text-[11px]"><i class="fa-solid fa-water"></i> Trapped / Flooded</span>
+                  <span class="text-[9px] text-slate-400 block">Water entering room</span>
+                </button>
+                <button type="button" onclick="selectTriage(this, 'FOOD_WATER')" class="triage-opt p-2 rounded-xl border border-blue-500/50 bg-blue-950/30 text-left hover:border-blue-400 transition">
+                  <span class="block font-bold text-blue-400 text-[11px]"><i class="fa-solid fa-bottle-water"></i> Rations Depleted</span>
+                  <span class="text-[9px] text-slate-400 block">Stranded without water</span>
+                </button>
+                <button type="button" onclick="selectTriage(this, 'SAFE_CHECKIN')" class="triage-opt p-2 rounded-xl border border-emerald-500/50 bg-emerald-950/30 text-left hover:border-emerald-400 transition">
+                  <span class="block font-bold text-emerald-400 text-[11px]"><i class="fa-solid fa-circle-check"></i> I Am Safe</span>
+                  <span class="text-[9px] text-slate-400 block">Report head count</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Headcount & Message -->
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 uppercase">Number of People With You</label>
+              <input type="number" id="sosCount" min="1" max="100" value="1" class="w-full bg-cyberdark-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 uppercase">Brief Distress Note</label>
+              <textarea id="sosNotes" rows="2" placeholder="e.g., 4 students on 3rd floor terrace, water level 1 meter high at staircase..." class="w-full bg-cyberdark-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
+            </div>
+
+            <!-- Submit Button -->
+            <button onclick="submitStudentSOS()" class="w-full bg-red-600 hover:bg-red-700 text-white font-tech font-bold py-3 rounded-2xl text-sm transition shadow-lg shadow-red-600/30 active:scale-95 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-paper-plane text-xs"></i>
+              <span>TRANSMIT SOS VIA LORA MESH</span>
+            </button>
+          </div>
+
+          <!-- Transmission Success Confirmation Screen (Hidden until sent) -->
+          <div id="sosSuccessScreen" class="hidden flex-1 flex flex-col items-center justify-center text-center p-4 space-y-3">
+            <div class="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center text-2xl animate-bounce">
+              <i class="fa-solid fa-satellite"></i>
+            </div>
+            <h3 class="font-tech font-bold text-xl text-white">SOS PACKET DELIVERED!</h3>
+            <p class="text-xs text-slate-300 font-mono">Packet ID: <strong class="text-emerald-400" id="receiptPacketId">#RF-9041</strong></p>
+            <div class="bg-cyberdark-900 p-3 rounded-2xl border border-slate-800 text-left text-[11px] font-mono space-y-1 w-full text-slate-300">
+              <p>• Mesh Route: <span class="text-white">Node 03 &rarr; Node 02 &rarr; EOC Gateway</span></p>
+              <p>• Signal SNR: <span class="text-emerald-400">+7.5 dB</span></p>
+              <p>• Status: <span class="text-amber-400 font-bold">DISPATCH QUEUED</span></p>
+            </div>
+            <p class="text-[11px] text-slate-400">Stay calm and remain at your high elevation. Do not enter floodwaters. Emergency responders are notified.</p>
+            <button onclick="resetCaptiveForm()" class="text-xs font-mono text-emerald-400 underline hover:text-white pt-2">
+              Send Another Update
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="appToast" class="fixed bottom-6 right-6 bg-cyberdark-850 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl z-50 text-xs font-mono flex items-center gap-3 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+    <i class="fa-solid fa-circle-info text-emerald-400 text-base" id="toastIcon"></i>
+    <span id="toastMsg">Telemetry updated.</span>
+  </div>
+
+  <!-- APPLICATION JAVASCRIPT LOGIC -->
+  <script>
+    // CAMPUS NODES TELEMETRY DATA (Case 1 ENTC Mesh Model)
+    const CAMPUS_NODES = [
+      { id: 1, name: "Node 01: ENTC Rooftop (EOC Gateway)", x: 50, y: 35, battery: 96, rssi: -72, snr: 8.5, clients: 38, isGateway: true, status: "nominal" },
+      { id: 2, name: "Node 02: Main Academic Library", x: 25, y: 28, battery: 89, rssi: -84, snr: 6.8, clients: 54, isGateway: false, status: "nominal" },
+      { id: 3, name: "Node 03: Hostel Block A (Boys)", x: 80, y: 24, battery: 78, rssi: -88, snr: 5.4, clients: 82, isGateway: false, status: "nominal" },
+      { id: 4, name: "Node 04: Hostel Block B (Girls)", x: 82, y: 72, battery: 84, rssi: -82, snr: 7.1, clients: 91, isGateway: false, status: "urgent" },
+      { id: 5, name: "Node 05: Auditorium Complex", x: 22, y: 75, battery: 71, rssi: -91, snr: 4.8, clients: 26, isGateway: false, status: "nominal" },
+      { id: 6, name: "Node 06: Campus Canteen / Substation", x: 48, y: 82, battery: 65, rssi: -94, snr: 3.9, clients: 41, isGateway: false, status: "flooded" }
+    ];
+
+    // LIVE DISTRESS QUEUE DATA
+    let distressAlerts = [
+      {
+        id: "RF-8821",
+        name: "Rahul Verma",
+        roll: "25-ENTC-109",
+        building: "Hostel Block B (Girls)",
+        floor: "Ground Floor (Flooded!)",
+        triage: "CRITICAL_MEDICAL",
+        triageLabel: "Critical Medical",
+        headcount: 3,
+        notes: "Student suffered deep leg cut during evacuation. Heavy bleeding, ground floor completely flooded with 1.2m water.",
+        time: "3 mins ago",
+        status: "PENDING_DISPATCH",
+        hops: 2
+      },
+      {
+        id: "RF-8819",
+        name: "Pooja Hegde",
+        roll: "26-ENTC-048",
+        building: "Hostel Block A (Boys)",
+        floor: "2nd Floor",
+        triage: "TRAPPED_FLOOD",
+        triageLabel: "Trapped / Flooded",
+        headcount: 8,
+        notes: "Stairwell submerged. 8 students gathered in Room 204. Drinking water exhausted.",
+        time: "7 mins ago",
+        status: "BOAT_EN_ROUTE",
+        hops: 1
+      },
+      {
+        id: "RF-8804",
+        name: "Prof. S. Joshi",
+        roll: "FACULTY-012",
+        building: "Campus Canteen",
+        floor: "1st Floor (Water rising)",
+        triage: "FOOD_WATER",
+        triageLabel: "Rations Depleted",
+        headcount: 14,
+        notes: "Canteen roof intact. 14 cafeteria workers and staff sheltering. Generator submerged.",
+        time: "14 mins ago",
+        status: "QUEUED",
+        hops: 3
+      },
+      {
+        id: "RF-8799",
+        name: "Aditya Nair",
+        roll: "24-MECH-201",
+        building: "Main Academic Library",
+        floor: "3rd Floor",
+        triage: "SAFE_CHECKIN",
+        triageLabel: "Safe Check-in",
+        headcount: 22,
+        notes: "Library upper floors dry. All 22 students accounted for. Mobile battery preservation in place.",
+        time: "21 mins ago",
+        status: "VERIFIED_SAFE",
+        hops: 1
+      }
+    ];
+
+    let currentView = 'eoc';
+    let contingencyActive = false;
+    let selectedTriageType = 'CRITICAL_MEDICAL';
+
+    // INITIALIZATION
+    window.onload = function() {
+      renderMapNodes();
+      renderMeshInterlinks();
+      renderSOSFeed();
+      initTelemetryLog();
+      startSimulatedClock();
+      startPeriodicHeartbeat();
+    };
+
+    // VIEW SWITCHING (EOC vs Captive Portal)
+    function setView(view) {
+      currentView = view;
+      const eocView = document.getElementById('view-eoc');
+      const portalView = document.getElementById('view-portal');
+      const btnEoc = document.getElementById('btn-eoc');
+      const btnPortal = document.getElementById('btn-portal');
+
+      if (view === 'eoc') {
+        eocView.classList.remove('hidden');
+        portalView.classList.add('hidden');
+        btnEoc.className = "px-3 py-1.5 rounded-lg bg-emerald-500 text-cyberdark-950 font-bold shadow-md transition-all flex items-center gap-1.5";
+        btnPortal.className = "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-300 hover:text-white";
+      } else {
+        portalView.classList.remove('hidden');
+        eocView.classList.add('hidden');
+        btnPortal.className = "px-3 py-1.5 rounded-lg bg-emerald-500 text-cyberdark-950 font-bold shadow-md transition-all flex items-center gap-1.5";
+        btnEoc.className = "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-300 hover:text-white";
+      }
+    }
+
+    // MAP NODES RENDERING
+    function renderMapNodes() {
+      const container = document.getElementById('mapNodesContainer');
+      if (!container) return;
+
+      container.innerHTML = CAMPUS_NODES.map(node => {
+        const isUrgent = node.status === 'urgent';
+        const isGateway = node.isGateway;
+        const colorClass = isGateway ? 'bg-blue-500 border-blue-300 text-white' : isUrgent ? 'bg-red-500 border-red-300 text-white strobe-flash' : 'bg-emerald-500 border-emerald-300 text-cyberdark-950';
+
+        return `
+          <div onclick="inspectNode(${node.id})" class="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group" style="left: ${node.x}%; top: ${node.y}%;">
+            <div class="relative flex items-center justify-center">
+              <div class="w-7 h-7 rounded-full border-2 ${colorClass} font-bold text-[10px] flex items-center justify-center shadow-lg transition-transform group-hover:scale-125">
+                ${isGateway ? '<i class="fa-solid fa-satellite"></i>' : node.id}
+              </div>
+              <span class="absolute -bottom-5 whitespace-nowrap bg-cyberdark-900/90 text-white px-2 py-0.5 rounded text-[9px] font-mono border border-slate-700 pointer-events-none group-hover:opacity-100 opacity-90 transition">
+                ${node.name.split(':')[0]}
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // DRAW SVG MESH LINKS
+    function renderMeshInterlinks() {
+      const svg = document.getElementById('meshLinesSvg');
+      if (!svg) return;
+
+      // Connections between Gateway (Node 1) and other nodes
+      const links = [
+        [1, 2], [1, 3], [1, 6], [2, 5], [3, 4], [5, 6], [4, 6]
+      ];
+
+      let svgContent = '';
+      links.forEach(([fromId, toId]) => {
+        const from = CAMPUS_NODES.find(n => n.id === fromId);
+        const to = CAMPUS_NODES.find(n => n.id === toId);
+        if (from && to) {
+          svgContent += `
+            <line x1="${from.x}%" y1="${from.y}%" x2="${to.x}%" y2="${to.y}%" stroke="rgba(59, 130, 246, 0.4)" stroke-width="2" stroke-dasharray="4" />
+          `;
+        }
+      });
+      svg.innerHTML = svgContent;
+    }
+
+    // INSPECT NODE TELEMETRY
+    function inspectNode(nodeId) {
+      const node = CAMPUS_NODES.find(n => n.id === nodeId);
+      if (!node) return;
+
+      document.getElementById('inspectNodeName').innerText = node.name;
+      document.getElementById('inspectNodeRole').innerText = node.isGateway ? "Base Gateway • Master LoRa Server & Offline Captive Web Host" : "Rooftop Mesh Repeater Node • ESP32 + 18650 Solar Buffered";
+      document.getElementById('inspectNodeBattery').innerText = `${node.battery}% (Solar Float)`;
+      document.getElementById('inspectNodeRssi').innerText = `${node.snr > 0 ? '+' : ''}${node.snr} dB / ${node.rssi} dBm`;
+      document.getElementById('inspectNodeClients').innerText = `${node.clients} Phones Connected`;
+
+      showToast(`Inspecting ${node.name.split(':')[0]} Telemetry`);
+    }
+
+    // LIVE DISTRESS FEED RENDERING
+    function renderSOSFeed() {
+      const container = document.getElementById('sosFeedContainer');
+      if (!container) return;
+
+      container.innerHTML = distressAlerts.map(alert => {
+        let badgeStyle = "bg-red-500/20 text-red-400 border-red-500/40";
+        let icon = "fa-heart-pulse";
+        if (alert.triage === 'TRAPPED_FLOOD') {
+          badgeStyle = "bg-amber-500/20 text-amber-400 border-amber-500/40";
+          icon = "fa-water";
+        } else if (alert.triage === 'FOOD_WATER') {
+          badgeStyle = "bg-blue-500/20 text-blue-400 border-blue-500/40";
+          icon = "fa-bottle-water";
+        } else if (alert.triage === 'SAFE_CHECKIN') {
+          badgeStyle = "bg-emerald-500/20 text-emerald-400 border-emerald-500/40";
+          icon = "fa-circle-check";
+        }
+
+        return `
+          <div class="bg-cyberdark-850 p-3.5 rounded-2xl border border-slate-800 hover:border-slate-700 transition space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono font-bold text-white">${alert.id}</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full border ${badgeStyle} flex items-center gap-1 font-bold">
+                  <i class="fa-solid ${icon}"></i> ${alert.triageLabel}
+                </span>
+              </div>
+              <span class="text-[10px] font-mono text-slate-400">${alert.time}</span>
+            </div>
+
+            <div class="text-xs space-y-0.5">
+              <div class="text-slate-200 font-semibold">${alert.name} <span class="text-slate-400 font-normal">(${alert.roll})</span></div>
+              <div class="text-slate-400 text-[11px] font-mono">
+                <i class="fa-solid fa-location-dot text-red-400"></i> ${alert.building} • <strong class="text-white">${alert.floor}</strong> • ${alert.headcount} Person(s)
+              </div>
+              <p class="text-slate-300 text-[11px] bg-cyberdark-950 p-2 rounded-xl border border-slate-800/80 mt-1">
+                "${alert.notes}"
+              </p>
+            </div>
+
+            <div class="flex items-center justify-between pt-1 text-[10px] font-mono border-t border-slate-800/80">
+              <span class="text-slate-400">Hops: <strong class="text-emerald-400">${alert.hops} Mesh Hop(s)</strong></span>
+              <button onclick="dispatchRescueUnit('${alert.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-black font-bold transition">
+                <i class="fa-solid fa-life-ring"></i> Dispatch Rescue Boat
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Update counters
+      const pendingCount = distressAlerts.filter(a => a.triage !== 'SAFE_CHECKIN').length;
+      document.getElementById('statPendingSOS').innerText = `${pendingCount} Alerts`;
+    }
+
+    // CAPTIVE FORM LOGIC (Student Perspective)
+    function selectTriage(btn, triageCode) {
+      selectedTriageType = triageCode;
+      document.querySelectorAll('.triage-opt').forEach(el => {
+        el.classList.remove('ring-2', 'ring-white', 'scale-[1.02]');
+      });
+      btn.classList.add('ring-2', 'ring-white', 'scale-[1.02]');
+    }
+
+    function submitStudentSOS() {
+      const name = document.getElementById('sosName').value.trim() || "Anonymous Student";
+      const roll = document.getElementById('sosRoll').value.trim() || "26-ENTC-GUEST";
+      const building = document.getElementById('sosBuilding').value;
+      const floor = document.getElementById('sosFloor').value;
+      const count = parseInt(document.getElementById('sosCount').value) || 1;
+      const notes = document.getElementById('sosNotes').value.trim() || "Immediate assistance requested.";
+
+      const newId = `#RF-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      let triageText = "Critical Medical";
+      if (selectedTriageType === 'TRAPPED_FLOOD') triageText = "Trapped / Flooded";
+      if (selectedTriageType === 'FOOD_WATER') triageText = "Rations Depleted";
+      if (selectedTriageType === 'SAFE_CHECKIN') triageText = "Safe Check-in";
+
+      // Append to live list
+      distressAlerts.unshift({
+        id: newId,
+        name: name,
+        roll: roll,
+        building: building,
+        floor: floor,
+        triage: selectedTriageType,
+        triageLabel: triageText,
+        headcount: count,
+        notes: notes,
+        time: "Just now",
+        status: "QUEUED",
+        hops: 2
+      });
+
+      // Update receipts
+      document.getElementById('receiptPacketId').innerText = newId;
+      document.getElementById('captiveFormBody').classList.add('hidden');
+      document.getElementById('sosSuccessScreen').classList.remove('hidden');
+
+      // Update EOC console and re-render
+      logTelemetry(`LORA_RX: Packet [${newId}] from ${name} via Node 03 (RSSI: -81dBm, SNR: 7.2dB)`);
+      renderSOSFeed();
+      showToast(`SOS [${newId}] successfully broadcast through LoRa mesh!`);
+    }
+
+    function resetCaptiveForm() {
+      document.getElementById('captiveFormBody').classList.remove('hidden');
+      document.getElementById('sosSuccessScreen').classList.add('hidden');
+      document.getElementById('sosNotes').value = "";
+    }
+
+    // REVERSE BROADCAST FROM EOC TO CAPTIVE PORTAL
+    function broadcastAdvisory() {
+      const input = document.getElementById('eocAdvisoryInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      document.getElementById('portalBroadcastText').innerText = text;
+      logTelemetry(`LORA_TX_BEACON: Broadcast Advisory dispatched: "${text}"`);
+      showToast("Emergency advisory broadcast transmitted to all connected student phones!");
+      input.value = "";
+    }
+
+    // RESCUE DISPATCH ACTION
+    function dispatchRescueUnit(alertId) {
+      logTelemetry(`EOC_DISPATCH: Rescue Boat 02 tasked to target [${alertId}]`);
+      showToast(`Rescue squad deployed for ${alertId}`);
+    }
+
+    // TELEMETRY CONSOLE FUNCTIONS
+    function initTelemetryLog() {
+      logTelemetry("SYSTEM_BOOT: LoRa Mesh Gateway initialized on 868.100 MHz (SF10)");
+      logTelemetry("NODE_SYNC: 6 of 6 nodes synchronized via SX1276 mesh protocol.");
+      logTelemetry("CAPTIVE_PORTAL: DNS Spoofing active (SSID: CAMPUS_EMERGENCY_SOS).");
+      logTelemetry("HEARTBEAT: Gateway reports nominal solar float voltage: 4.18V.");
+    }
+
+    function logTelemetry(msg) {
+      const consoleEl = document.getElementById('telemetryConsole');
+      if (!consoleEl) return;
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.innerHTML = `<span class="text-slate-500">[${time}]</span> ${msg}`;
+      consoleEl.prepend(div);
+    }
+
+    function clearConsole() {
+      document.getElementById('telemetryConsole').innerHTML = '';
+      logTelemetry("Console buffer cleared.");
+    }
+
+    // PERIODIC RANDOM HEARTBEAT (Simulates real RF field packets)
+    function startPeriodicHeartbeat() {
+      setInterval(() => {
+        const randNode = CAMPUS_NODES[Math.floor(Math.random() * CAMPUS_NODES.length)];
+        const snr = (Math.random() * 6 + 4).toFixed(1);
+        const rssi = -Math.floor(Math.random() * 25 + 75);
+        logTelemetry(`BEACON_HOP: ${randNode.name.split(':')[0]} [Li-Ion: ${randNode.battery}%] -> GW SNR: +${snr}dB RSSI: ${rssi}dBm`);
+      }, 7000);
+    }
+
+    // GREEN HAT CONTINGENCY TOGGLE
+    function toggleContingency() {
+      contingencyActive = !contingencyActive;
+      const banner = document.getElementById('contingencyBanner');
+      const btn = document.getElementById('btnContingency');
+      const label = document.getElementById('contingencyLabel');
+
+      if (contingencyActive) {
+        banner.classList.remove('hidden');
+        btn.className = "bg-amber-500 text-black px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5";
+        label.innerText = "Contingency Active";
+        logTelemetry("CONTINGENCY_ENGAGED: Analog VHF Repeaters + High-Lumen Rooftop Strobe Beacons pulsing Morse SOS!");
+        showToast("Green Hat Contingency Active: Analog VHF walkie-talkies & optical strobes engaged!");
+      } else {
+        banner.classList.add('hidden');
+        btn.className = "border border-amber-500/50 hover:bg-amber-500/20 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5";
+        label.innerText = "Trigger Contingency";
+        logTelemetry("CONTINGENCY_DISENGAGED: Reverted to primary LoRa Digital Mesh operation.");
+        showToast("Returned to primary LoRa mesh mode.");
+      }
+    }
+
+    // PHONE STATUS BAR CLOCK
+    function startSimulatedClock() {
+      setInterval(() => {
+        const d = new Date();
+        const hrs = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        const clockEl = document.getElementById('phoneClock');
+        if (clockEl) clockEl.innerText = `${hrs}:${mins}`;
+      }, 1000);
+    }
+
+    // GENERAL TOAST HELPER
+    let toastTimeout = null;
+    function showToast(msg) {
+      const toast = document.getElementById('appToast');
+      const text = document.getElementById('toastMsg');
+      text.innerText = msg;
+      toast.classList.remove('translate-y-24', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 3200);
+    }
+  </script>
+</body>
+</html>
